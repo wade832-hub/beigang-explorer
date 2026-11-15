@@ -14,7 +14,7 @@
   {
    "id": "loc1",
    "name": "北港朝天宮",
-   "subtitle": "尋寶題取材自育德媽祖同修會「北港朝天宮線上導覽」，待查核",
+   "subtitle": "北港最重要的媽祖廟，也是「國定古蹟」。",
    "x": 53.0,
    "y": 44.0,
    "clues": [
@@ -300,23 +300,58 @@
   {
    "id": "loc2",
    "name": "森興燈籠",
-   "subtitle": "（示範內容，題目未查核，請教師修改）",
+   "subtitle": "1866年開店、已經傳到第五代的手工燈籠老店。",
    "x": 49.9,
    "y": 85.5,
    "clues": [
     {
-     "id": "c1",
-     "text": "找一個你覺得「年紀最大」的物件，拍下來。",
-     "hint": "看看材質、顏色、磨損的痕跡。"
+     "id": "s1",
+     "text": "在店門口看得到的燈籠上，找一處你最想細看的文字。拍下來，寫一句：哪個筆畫最吸引你？",
+     "hint": "站在不擋路的位置，看看燈籠表面的字。",
+     "src": [
+      "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
+      "https://smiletaiwan.cw.com.tw/article/2935"
+     ],
+     "status": "部分查核",
+     "needs": ""
     },
     {
-     "id": "c2",
-     "text": "找一個寫著文字的招牌、匾額或石碑。",
-     "hint": "可能在高處，也可能在牆角。"
+     "id": "s2",
+     "text": "找找看，門口可見的燈籠上有沒有圖畫？選一個圖案拍下來，寫一句：你是從哪個細節認出它的？",
+     "hint": "把視線移到文字旁邊，也看看燈籠的另一個可見面。",
+     "src": [
+      "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
+      "https://smiletaiwan.cw.com.tw/article/2935"
+     ],
+     "status": "部分查核",
+     "needs": ""
+    },
+    {
+     "id": "s3",
+     "text": "找找看，門口能不能看到兩種不同外形的燈籠？各拍一張，寫一句：它們的邊角或輪廓有什麼不同？",
+     "hint": "先看整體外形，再比較轉彎的地方；不要去碰燈籠。",
+     "src": [
+      "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
+      "https://smiletaiwan.cw.com.tw/article/2935"
+     ],
+     "status": "部分查核",
+     "needs": ""
+    },
+    {
+     "id": "s4",
+     "text": "找一個還沒做完的燈籠骨架（先問問老闆可不可以看、可不可以拍）。拍下支架接在一起的地方，寫一句：你覺得它怎麼把外形撐起來？",
+     "hint": "看還沒包好的作品，沿著細細的支架找連接的地方。",
+     "src": [
+      "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
+      "https://smiletaiwan.cw.com.tw/article/2935"
+     ],
+     "status": "部分查核",
+     "needs": "需店家同意"
     }
    ],
    "guide": [
-    "導覽員提到什麼讓你印象深刻的故事？"
+    "一個燈籠從材料到完成，要經過哪些步驟？記下兩個步驟的關鍵字。",
+    "燈籠會用在什麼場合？記下兩個關鍵字，再寫一句它和北港生活的關係。"
    ],
    "brief": {
     "lead": "1866年開店、已經傳到第五代的手工燈籠老店。",
@@ -342,23 +377,58 @@
   {
    "id": "loc3",
    "name": "好住民宿",
-   "subtitle": "（示範內容，題目未查核，請教師修改）",
+   "subtitle": "由一棟50多年歷史的老銀行改建而成的民宿，就在朝天宮附近。",
    "x": 48.6,
    "y": 10.1,
    "clues": [
     {
-     "id": "c1",
-     "text": "找一個和「水」或「交通」有關的東西。",
-     "hint": "可能是橋、河道、碼頭或路標。"
+     "id": "h1",
+     "text": "在民宿外面找找看，哪一處文字或標示能讓路人認出這裡是住宿的地方？拍下來，寫一句你判斷的理由。",
+     "hint": "看看入口旁和外牆上可公開看見的標示，不用走進屋內。",
+     "src": [
+      "https://www.swcoast-nsa.gov.tw/zh-tw/accommodation/details/297",
+      "https://tour.yunlin.gov.tw/main/modules/MySpace/index.php?xmlid=1036987"
+     ],
+     "status": "開放觀察題",
+     "needs": ""
     },
     {
-     "id": "c2",
-     "text": "找一個你從來沒看過的東西。",
-     "hint": "問自己：它是做什麼用的？"
+     "id": "h2",
+     "text": "從外面選一個你覺得值得留下來的門、窗或牆面細節，拍下來。寫一句：如果換成全新的，你覺得會少了什麼？",
+     "hint": "從公共通道看建築外表，找形狀、紋路或顏色特別的地方。",
+     "src": [
+      "https://www.swcoast-nsa.gov.tw/zh-tw/accommodation/details/297",
+      "https://tour.yunlin.gov.tw/main/modules/MySpace/index.php?xmlid=1036987"
+     ],
+     "status": "開放觀察題",
+     "needs": ""
+    },
+    {
+     "id": "h3",
+     "text": "找找看，入口外面有沒有讓人覺得「歡迎來住」的設計？拍一處，寫一句：它會怎麼幫助第一次來的人？",
+     "hint": "留意入口旁的文字、圖案或擺設，只選從外面看得到的。",
+     "src": [
+      "https://www.swcoast-nsa.gov.tw/zh-tw/accommodation/details/297",
+      "https://tour.yunlin.gov.tw/main/modules/MySpace/index.php?xmlid=1036987"
+     ],
+     "status": "開放觀察題",
+     "needs": ""
+    },
+    {
+     "id": "h4",
+     "text": "請主人指一處「保留下來、換了新用途」的地方。拍下來，寫一句：它原來做什麼，現在怎麼用？",
+     "hint": "先聽主人介紹，再看它的形狀和位置；跟著大家，不要自己走進其他房間。",
+     "src": [
+      "https://tour.yunlin.gov.tw/main/modules/MySpace/index.php?xmlid=1036987",
+      "https://www.swcoast-nsa.gov.tw/zh-tw/accommodation/details/297"
+     ],
+     "status": "部分查核",
+     "needs": "需店家同意"
     }
    ],
    "guide": [
-    "這個地方以前的人可能怎麼生活？"
+    "這棟房子以前和現在各做什麼用？記下兩個關鍵字。",
+    "主人保留了什麼、改變了什麼？為什麼？"
    ],
    "brief": {
     "lead": "由一棟50多年歷史的老銀行改建而成的民宿，就在朝天宮附近。",
@@ -382,24 +452,57 @@
   {
    "id": "loc4",
    "name": "北港工藝坊",
-   "subtitle": "（示範內容，題目未查核，請教師修改）",
+   "subtitle": "介紹北港宗教工藝的地方，藏在朝天宮附近的巷子裡。",
    "x": 39.2,
    "y": 77.2,
    "clues": [
     {
-     "id": "c1",
-     "text": "找一個只有北港才有、別的地方不容易看到的東西。",
-     "hint": "可以是食物、商品、建築或活動。"
+     "id": "k1",
+     "text": "在工藝坊附近的公共通道找甕牆，拍一小段，寫一句：你看見兩種材料是怎麼排在一起的？",
+     "hint": "沿著工藝坊旁的巷子看牆面，留意一個一個圓圓的甕，和甕之間填了什麼。",
+     "src": [
+      "https://tour.yunlin.gov.tw/mainssl/modules/MySpace/BlogInfo.php?xi=1036781",
+      "https://yunlinmuseum.wixsite.com/yulinemuseum/copy-of-35"
+     ],
+     "status": "部分查核",
+     "needs": ""
     },
     {
-     "id": "c2",
-     "text": "找一個「舊」和「新」同時出現的畫面。",
-     "hint": "老房子旁邊的新招牌？"
+     "id": "k2",
+     "text": "在工藝坊周邊巷道找找看，地面有沒有介紹北港的小圖？拍一幅，寫一句：你從哪個細節猜它在畫什麼？",
+     "hint": "在巷子裡低頭看，找鋪在地上、和旁邊不一樣的小圖。",
+     "src": [
+      "https://yunlinmuseum.wixsite.com/yulinemuseum/copy-of-35"
+     ],
+     "status": "部分查核",
+     "needs": ""
+    },
+    {
+     "id": "k3",
+     "text": "站在工藝坊外面，找一個你想推薦給朋友看的建築或入口細節，拍下來。寫一句：它讓你想問這裡的什麼故事？",
+     "hint": "看看門口、外牆或公開標示，不用進入關閉的入口。",
+     "src": [
+      "https://tour.yunlin.gov.tw/mainssl/modules/MySpace/BlogInfo.php?xi=1036781",
+      "https://yunlinmuseum.wixsite.com/yulinemuseum/copy-of-35"
+     ],
+     "status": "開放觀察題",
+     "needs": ""
+    },
+    {
+     "id": "k4",
+     "text": "進到工藝坊裡，找一件你想介紹的工藝作品，拍下來，寫一句：哪個細節讓你覺得製作它需要耐心？",
+     "hint": "看看作品的表面、接合的地方或裝飾的細節。",
+     "src": [
+      "https://tour.yunlin.gov.tw/mainssl/modules/MySpace/BlogInfo.php?xi=1036781",
+      "https://yunlinmuseum.wixsite.com/yulinemuseum/copy-of-35"
+     ],
+     "status": "部分查核",
+     "needs": "需入館"
     }
    ],
    "guide": [
-    "導覽員提到什麼讓你印象深刻的故事？",
-    "這個地方有哪些值得記住的文化特色？"
+    "這個地方以前和現在各有什麼用途？記下兩個關鍵字。",
+    "導覽員介紹了哪一種北港工藝？記下工藝名稱，和它的材料或做法。"
    ],
    "brief": {
     "lead": "介紹北港宗教工藝的地方，藏在朝天宮附近的巷子裡。",

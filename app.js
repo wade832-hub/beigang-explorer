@@ -116,7 +116,8 @@ async function flush() {
   const ids = [...S.pending]; if (!ids.length) return true;
   S.pending.clear();
   try {
-    for (const id of ids) { const r = S.recs.get(id); r.updatedAt = Date.now(); await recPut(r); try { localStorage.removeItem(draftKey(id)); } catch (e) { } }
+    // 寫入期間若又有新輸入（id 重新進入 pending），保留 localStorage 暫存，避免最後打的字在立刻關閉時遺失
+    for (const id of ids) { const r = S.recs.get(id); r.updatedAt = Date.now(); await recPut(r); if (!S.pending.has(id)) { try { localStorage.removeItem(draftKey(id)); } catch (e) { } } }
     showSave('ok'); scheduleSync(); return true;
   } catch (e) { ids.forEach(i => S.pending.add(i)); showSave('err', e.message); return false; }
 }
@@ -170,9 +171,9 @@ function syncPill() {
   const n = pendingSync().length + S.pending.size;
   if (!S.act.syncUrl) return '<span class="pill mute">僅存本機</span>';
   if (S.syncing) return '<span class="pill info">同步中…</span>';
-  if (!n) return S.lastSync || [...S.recs.values()].some(r => r.syncedAt) ? '<span class="pill ok">☁ 已同步完成</span>' : '<span class="pill mute">尚無資料</span>';
-  if (S.syncErr && navigator.onLine) return `<span class="pill err">同步失敗・${n} 筆等待</span>`;
-  return `<span class="pill warn">等待同步 ${n} 筆</span>`;
+  if (!n) return S.lastSync || [...S.recs.values()].some(r => r.syncedAt) ? '<span class="pill ok">☁ 已同步完成</span>' : '<span class="pill mute">還沒有紀錄</span>';
+  if (S.syncErr && navigator.onLine) return `<span class="pill err">還沒上傳 ${n} 筆，會自動再試</span>`;
+  return `<span class="pill warn">還沒上傳 ${n} 筆</span>`;
 }
 function updateTopStatus() { const el = $('#topstatus'); if (el) el.innerHTML = syncPill(); }
 
@@ -339,7 +340,7 @@ function locStatus(loc) {
   const clues = loc.clues.map(c => getRec('clue', loc.id, c.id));
   const found = clues.filter(r => r.data.photo).length;
   const g = getRec('guide', loc.id, 'main').data, d = getRec('disc', loc.id, 'main').data;
-  const guide = Object.keys(g).some(k => hasText(g[k])), disc = Object.keys(d).some(k => hasText(d[k]));
+  const guide = Object.keys(g).some(k => hasText(g[k])) || listRecs('gnote', loc.id).some(liveNote), disc = Object.keys(d).some(k => hasText(d[k])) || listRecs('dnote', loc.id).some(liveNote);
   const total = loc.clues.length + 2, got = found + (guide ? 1 : 0) + (disc ? 1 : 0);
   return { found, nClues: loc.clues.length, guide, disc, got, total, state: got === 0 ? 'none' : got === total ? 'done' : 'part' };
 }
@@ -357,8 +358,7 @@ function mapHTML() {
   if (S.act.mapImage) {
     const off = L.filter(l => l.x == null);
     return `<div class="map map-img"><img src="${esc(S.act.mapImage)}" alt="北港街區走讀地圖">${markers}</div>
-    ${off.length ? `<p class="muted small mapnote">📍 ${off.map(l => esc(l.name)).join('、')}：${esc(off[0].mapNote || '地圖位置確認中')}，請從下方地點清單進入。</p>` : ''}
-    ${S.act.mapCredit ? `<p class="muted small mapnote">${esc(S.act.mapCredit)}</p>` : ''}`;
+    ${off.length ? `<p class="muted small mapnote">📍 ${off.map(l => esc(l.name)).join('、')}：請從下方地點清單進入。</p>` : ''}`;
   }
   const pts = L.map(l => `${(l.x ?? 50) * 8},${(l.y ?? 50) * 5}`).join(' ');
   return `<div class="map"><svg viewBox="0 0 800 500" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -418,7 +418,7 @@ function renderMission(focus) {
   <div class="card" id="mprompts">${sec(4, '出發前想一想', 1)}<p class="muted">寫一兩句就好，會放進你的探索手冊。</p>
    ${(m.prompts || []).map(([k, q, ph]) => `<label class="field">${esc(q)}</label><textarea data-f="${esc(k)}" rows="2" placeholder="${esc(ph || '')}"></textarea>`).join('')}</div>
   <button class="btn primary block" onclick="go('')">準備好了，開始探索 ›</button>
-  ${m.reviewed ? '' : '<p class="muted small" style="text-align:center;margin-top:14px">介紹內容整理自公開資料，老師確認中。</p>'}`;
+  `;
   bindText($('#mprompts'), getRec('mission', 'all', 'main'));
   if (focus) { const el = $('#m-' + CSS.escape(focus)); if (el) { el.classList.add('hl'); el.scrollIntoView({ block: 'start' }); } }
 }
@@ -449,8 +449,8 @@ function planHTML(loc) {
    <p class="muted small" style="margin:4px 0 8px">點一個分區，看看那裡有哪些尋寶線索。入口在圖的下方。</p>
    <div class="planimg"><img src="${esc(p.image)}" alt="${esc(loc.name)}分區平面示意圖">${boxes}</div>
    ${z ? `<div class="zonepick">📍 你選了：<b>${esc(z.name)}</b>${nSel ? `　<span class="muted small">這一區有 ${nSel} 條線索，往下看 ↓</span>` : ''}</div>` : ''}
-   ${p.pending && p.pending.length ? `<details class="small muted" style="margin-top:8px"><summary>還在確認位置的區域（${p.pending.length}）</summary>${p.pending.map(esc).join('、')}<br>這些地方圖上還沒畫，可以問導覽員在哪裡。</details>` : ''}
-   ${p.credit ? `<p class="muted small" style="margin:6px 0 0">${esc(p.credit)}</p>` : ''}</div>`;
+
+   </div>`;
 }
 function zoneBadge(loc, zid) {
   const cs = loc.clues.filter(c => c.zone === zid); if (!cs.length) return '';
@@ -461,7 +461,7 @@ function renderHunt(loc, pane) {
   const sel = loc.plan && S.zone && S.zone.loc === loc.id ? S.zone.id : null;
   const zoned = loc.clues.some(c => c.zone);
   const show = sel && zoned ? loc.clues.filter(c => c.zone === sel) : loc.clues;
-  const note = sel ? (!zoned || !show.length ? `<p class="muted small zonemsg">這一區的尋寶題老師還在準備，下面先列出全部線索。</p>` : '') : '';
+  const note = sel ? (!zoned || !show.length ? `<p class="muted small zonemsg">這一區沒有尋寶題，下面列出全部線索，也可以點其他分區看看。</p>` : '') : '';
   const list = sel && zoned && show.length ? show : loc.clues;
   pane.innerHTML = planHTML(loc) + note + list.map((c, i) => `<div class="card clue" id="clue-${c.id}"></div>`).join('') +
     `<p class="muted small" style="text-align:center">找不到也沒關係，可以先跳過，稍後再回來。</p>`;
@@ -502,15 +502,59 @@ function renderGuide(loc, pane) {
   const rec = getRec('guide', loc.id, 'main');
   pane.innerHTML = `<div class="card"><p class="muted">🎧 專心聽導覽，先記<b>關鍵字</b>就好，回去再補充。</p>
    ${(loc.guide || []).map((q, i) => `<label class="field">${esc(q)}</label><textarea data-f="q${i}" rows="3"></textarea>`).join('')}
-   <label class="field">自由筆記</label><textarea data-f="notes" rows="4" placeholder="人名、年代、數字、有趣的詞…"></textarea></div>`;
-  bindText(pane, rec);
+   <label class="field">自由筆記</label><textarea data-f="notes" rows="4" placeholder="人名、年代、數字、有趣的詞…"></textarea></div>
+   <div id="notes"></div>`;
+  bindText($('.card', pane), rec);
+  renderNotes(loc, $('#notes', pane), 'gnote', '🎧 我的導覽紀錄（一筆一筆）', '導覽員說了什麼？看到什麼？拍下來、寫幾個關鍵字');
 }
 const DISC = [['observe', '我自己觀察到什麼？', '我看到、聽到、聞到…'], ['curious', '有什麼讓我好奇？', ''], ['question', '我想提出的問題', '為什麼…？如果…會怎樣？'], ['guess', '我的初步推測', '我猜…因為…']];
 function renderDisc(loc, pane) {
   const rec = getRec('disc', loc.id, 'main');
   pane.innerHTML = `<div class="card"><p class="muted">💡 這裡寫的是<b>你自己</b>的發現，不一定要每格都寫。</p>
-   ${DISC.map(([k, q, ph]) => `<label class="field">${q}</label><textarea data-f="${k}" rows="3" placeholder="${esc(ph)}"></textarea>`).join('')}</div>`;
-  bindText(pane, rec);
+   ${DISC.map(([k, q, ph]) => `<label class="field">${q}</label><textarea data-f="${k}" rows="3" placeholder="${esc(ph)}"></textarea>`).join('')}</div>
+   <div id="notes"></div>`;
+  bindText($('.card', pane), rec);
+  renderNotes(loc, $('#notes', pane), 'dnote', '💡 我的發現（一筆一筆）', '我發現了什麼？拍下來，寫一句說明');
+}
+
+/* ---------- 一筆一筆的紀錄（文字＋照片，每筆一個紀錄，各自存檔與同步） ---------- */
+const liveNote = r => r && !r.data.deleted && (hasText(r.data.text) || r.data.photo);
+function listRecs(type, locId) {
+  return [...S.recs.values()].filter(r => r.type === type && r.locId === locId && !r.data.deleted && r.data.at).sort((a, b) => a.data.at - b.data.at);
+}
+async function savePhotoTo(rec, file, st) {
+  st.style.color = 'var(--ink2)'; st.textContent = '處理照片中…';
+  const p = await compressImage(file); rec.data.photo = p;
+  await flush(); await saveNow(rec);
+  const back = await recGet(rec.id);
+  if (!back || !back.data.photo || back.data.photo.buf.byteLength !== p.buf.byteLength) throw new Error('讀回檢查失敗');
+}
+function renderNotes(loc, box, type, title, ph) {
+  const list = listRecs(type, loc.id);
+  box.innerHTML = `<div class="card notes"><h3 style="margin-top:0">${title}</h3>
+   ${list.length ? '' : '<p class="muted small">還沒有紀錄。按下面的按鈕新增第一筆。</p>'}
+   ${list.map((r, i) => `<div class="note" id="nt-${esc(r.itemId)}"><div class="row"><b class="no">第 ${i + 1} 筆</b><span class="muted small">${hhmm(r.data.at)}</span><span class="grow"></span><button class="btn sm ghost" data-del="${esc(r.itemId)}">🗑 刪除</button></div>
+     ${r.data.photo ? `<img class="notephoto" src="${photoURL(r.data.photo)}" alt="第 ${i + 1} 筆照片">` : ''}
+     <textarea data-f="text" rows="2" placeholder="${esc(ph)}"></textarea>
+     <div class="row"><label class="btn sm">📷 ${r.data.photo ? '重拍' : '加照片'}<input type="file" accept="image/*" capture="environment" data-ph="${esc(r.itemId)}"></label><label class="btn sm ghost">🖼 從相簿<input type="file" accept="image/*" data-ph="${esc(r.itemId)}"></label><span class="photostatus" id="nps-${esc(r.itemId)}"></span></div></div>`).join('')}
+   <div class="row" style="margin-top:10px"><label class="btn primary grow">📷 拍照新增一筆<input type="file" accept="image/*" capture="environment" data-new="photo"></label><button class="btn grow" data-new="text">✏️ 文字新增一筆</button></div>
+   <p class="photostatus" id="nps-new"></p></div>`;
+  list.forEach(r => bindText($('#nt-' + CSS.escape(r.itemId), box), r));
+  const create = async () => { const r = getRec(type, loc.id, 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)); r.data.at = Date.now(); r.data.text = ''; await saveNow(r); return r; };
+  $('[data-new=text]', box).onclick = async () => { const r = await create(); renderNotes(loc, box, type, title, ph); const t = $('#nt-' + CSS.escape(r.itemId) + ' textarea', box); if (t) t.focus(); };
+  $('input[data-new=photo]', box).onchange = async e => {
+    const f = e.target.files && e.target.files[0]; if (!f) return; const st = $('#nps-new', box);
+    try { const r = await create(); await savePhotoTo(r, f, st); renderNotes(loc, box, type, title, ph); const t = $('#nt-' + CSS.escape(r.itemId) + ' textarea', box); if (t) t.focus(); }
+    catch (err) { st.style.color = 'var(--err)'; st.textContent = '✗ 儲存失敗，請重試：' + err.message; }
+  };
+  $$('input[data-ph]', box).forEach(inp => inp.onchange = async () => {
+    const f = inp.files && inp.files[0]; if (!f) return; const r = list.find(x => x.itemId === inp.dataset.ph); const st = $('#nps-' + CSS.escape(r.itemId), box);
+    try { await savePhotoTo(r, f, st); renderNotes(loc, box, type, title, ph); } catch (err) { st.style.color = 'var(--err)'; st.textContent = '✗ 儲存失敗，請重試：' + err.message; }
+  });
+  $$('[data-del]', box).forEach(b => b.onclick = async () => {
+    if (!confirm('確定刪除這一筆？')) return; const r = list.find(x => x.itemId === b.dataset.del);
+    await flush(); r.data.deleted = true; r.data.photo = null; r.data.text = ''; await saveNow(r); renderNotes(loc, box, type, title, ph);
+  });
 }
 
 /* ---------- 統整任務 ---------- */
@@ -545,7 +589,8 @@ function renderSynth() {
 }
 
 /* ---------- 探索手冊（學生與教師共用） ---------- */
-function bookHTML(act, name, recOf) {
+function bookHTML(act, name, recOf, listOf) {
+  const NOTES = (t, lid) => { const L = (listOf ? listOf(t, lid) : []).filter(liveNote); return L.length ? `<div class="q">一筆一筆的紀錄（${L.length}）</div>${L.map((r, n) => `<div class="noteblk"><div class="muted small">第 ${n + 1} 筆・${hhmm(r.data.at)}</div>${r.data.photo ? `<img src="${photoURL(r.data.photo)}" alt="">` : ''}${hasText(r.data.text) ? `<div class="a">${esc(r.data.text)}</div>` : ''}</div>`).join('')}` : ''; };
   const A = (v) => hasText(v) ? `<div class="a">${esc(v)}</div>` : `<div class="a empty">（未填寫）</div>`;
   const locName = id => (act.locations.find(l => l.id === id) || {}).name || '（未選擇）';
   let h = `<div class="book"><section class="page cover"><div class="t2">文 化 走 讀 探 索 手 冊</div><div class="t1">${esc(act.title)}</div><div class="compass">✦</div>
@@ -559,8 +604,8 @@ function bookHTML(act, name, recOf) {
     h += `<section class="page"><h2>地點 ${i + 1}｜${esc(l.name)}</h2><h3>🔍 尋寶紀錄</h3>`;
     l.clues.forEach((c, j) => { const r = recOf('clue', l.id, c.id).data;
       h += `<div class="clueblk"><div class="cluetxt"><b>線索 ${j + 1}：</b>${esc(c.text)}</div>${r.photo ? `<img src="${photoURL(r.photo)}" alt="">` : `<div class="noimg">${r.skipped ? '這條線索暫時跳過' : '尚未拍照'}</div>`}${hasText(r.reason) ? `<div class="q">我的判斷理由</div>${A(r.reason)}` : ''}</div>`; });
-    h += `<h3>🎧 導覽紀錄</h3>${(l.guide || []).map((q, k) => `<div class="q">${esc(q)}</div>${A(g['q' + k])}`).join('')}<div class="q">自由筆記</div>${A(g.notes)}
-      <h3>💡 我的發現與疑問</h3>${DISC.map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}</section>`;
+    h += `<h3>🎧 導覽紀錄</h3>${(l.guide || []).map((q, k) => `<div class="q">${esc(q)}</div>${A(g['q' + k])}`).join('')}<div class="q">自由筆記</div>${A(g.notes)}${NOTES('gnote', l.id)}
+      <h3>💡 我的發現與疑問</h3>${DISC.map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}${NOTES('dnote', l.id)}</section>`;
   });
   const s = recOf('synth', 'all', 'main').data, D = synthDef.call(null);
   h += `<section class="page"><h2>統整與創造</h2>
@@ -576,7 +621,7 @@ function renderBookView() {
   app().innerHTML = `<div class="card noprint"><p>手冊會用你目前的紀錄自動排版，<b>沒完成的部分也能先匯出</b>。</p>
    <div class="row"><button class="btn primary grow" id="pdfbtn">📄 下載 PDF</button><button class="btn grow" onclick="window.print()">🖨 列印 / 存成 PDF</button></div>
    <p class="hint" id="pdfmsg">PDF 在平板上直接產生，不需要網路。iPad 會出現分享選單，請選「儲存到檔案」。</p></div>
-   <div id="bookwrap">${bookHTML(S.act, stuName(), getRec)}</div>`;
+   <div id="bookwrap">${bookHTML(S.act, stuName(), getRec, listRecs)}</div>`;
   $('#pdfbtn').onclick = () => makePDF($('#bookwrap'), `${S.act.title}_${stuName()}_探索手冊.pdf`, $('#pdfmsg'), $('#pdfbtn'));
 }
 function loadScript(src) { return new Promise((res, rej) => { if ($(`script[src="${src}"]`)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('無法載入 ' + src)); document.head.appendChild(s); }); }
@@ -702,6 +747,7 @@ async function mergePkg(pkg) {
   P[id] = { student: pkg.student, activity: pkg.activity || cur.activity, records: [...m.values()], at: Date.now() };
   await kvSet('teacherPkgs', P); return n;
 }
+function pkgListOf(pkg) { return (t, l) => pkg.records.filter(r => r.type === t && r.locId === l && r.data && !r.data.deleted && r.data.at).sort((a, b) => a.data.at - b.data.at); }
 function pkgRecOf(pkg) { const m = new Map(pkg.records.map(r => [r.id, r])); return (t, l, i) => m.get(`${pkg.student.id}|${t}|${l}|${i}`) || { data: {} }; }
 async function renderTResults(nav) {
   const P = await tPkgs();
@@ -735,7 +781,7 @@ async function renderTView(id) {
   const p = (await tPkgs())[id]; if (!p) return go('teacher/results');
   setTop(p.student.name + ' 的手冊', 'teacher/results');
   app().innerHTML = `<div class="card noprint"><div class="row"><button class="btn primary grow" id="tpdf">📄 下載 PDF</button><button class="btn grow" onclick="window.print()">🖨 列印</button>
-   <button class="btn grow" id="tjson">💾 下載資料包</button></div><p class="hint" id="tmsg"></p></div><div id="bookwrap">${bookHTML(S.act, p.student.name, pkgRecOf(p))}</div>`;
+   <button class="btn grow" id="tjson">💾 下載資料包</button></div><p class="hint" id="tmsg"></p></div><div id="bookwrap">${bookHTML(S.act, p.student.name, pkgRecOf(p), pkgListOf(p))}</div>`;
   $('#tpdf').onclick = () => makePDF($('#bookwrap'), `${S.act.title}_${p.student.name}_探索手冊.pdf`, $('#tmsg'), $('#tpdf'));
   $('#tjson').onclick = () => saveFile(new Blob([JSON.stringify({ format: 'beigang-pkg', v: 1, student: p.student, activity: p.activity, records: p.records })], { type: 'application/json' }), `北港探索資料包_${p.student.name}_${stamp()}.json`, 'application/json');
 }
