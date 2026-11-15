@@ -306,46 +306,46 @@
    "clues": [
     {
      "id": "s1",
-     "text": "在店門口看得到的燈籠上，找一處你最想細看的文字。拍下來，寫一句：哪個筆畫最吸引你？",
-     "hint": "站在不擋路的位置，看看燈籠表面的字。",
+     "text": "在店門口看得到的燈籠上，找一顆你覺得最特別的燈籠。哪個細節最吸引你？",
+     "hint": "看看燈籠的形狀、顏色、文字和圖畫。",
      "src": [
       "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
       "https://smiletaiwan.cw.com.tw/article/2935"
      ],
-     "status": "部分查核",
+     "status": "教師指定",
      "needs": ""
     },
     {
      "id": "s2",
-     "text": "找找看，門口可見的燈籠上有沒有圖畫？選一個圖案拍下來，寫一句：你是從哪個細節認出它的？",
-     "hint": "把視線移到文字旁邊，也看看燈籠的另一個可見面。",
+     "text": "仔細觀察燈籠的外型，小顆燈籠與大顆燈籠是否相同？",
+     "hint": "比一比形狀、上下兩端和骨架的線條。",
      "src": [
       "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
       "https://smiletaiwan.cw.com.tw/article/2935"
      ],
-     "status": "部分查核",
+     "status": "教師指定",
      "needs": ""
     },
     {
      "id": "s3",
-     "text": "找找看，門口能不能看到兩種不同外形的燈籠？各拍一張，寫一句：它們的邊角或輪廓有什麼不同？",
-     "hint": "先看整體外形，再比較轉彎的地方；不要去碰燈籠。",
+     "text": "觀察燈籠上的文字，字型跟平常看到的有什麼不同？",
+     "hint": "看看筆畫的粗細、轉彎的地方和字的排列。",
      "src": [
       "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
       "https://smiletaiwan.cw.com.tw/article/2935"
      ],
-     "status": "部分查核",
+     "status": "教師指定",
      "needs": ""
     },
     {
      "id": "s4",
-     "text": "站在店門口，看看燈籠是怎麼掛起來、怎麼擺放的。拍下一個你覺得最特別的掛法或擺法，寫一句為什麼。",
-     "hint": "抬頭看騎樓上方，也看看門口兩旁。",
+     "text": "觀察其中一對燈籠的圖畫，圖畫細節是否有差異？掛法是否有分左邊、右邊？",
+     "hint": "找成對掛著的燈籠，左右兩顆仔細比一比。",
      "src": [
       "https://www.businesstoday.com.tw/article/category/183016/post/202010290019/",
       "https://smiletaiwan.cw.com.tw/article/2935"
      ],
-     "status": "開放觀察題",
+     "status": "教師指定",
      "needs": ""
     }
    ],
