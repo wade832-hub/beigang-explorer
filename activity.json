@@ -9,18 +9,7 @@
  "teacherPinHash": "3a147579d576815204ed4b86113e543cfa987acc6dd3278e7b2fcaa41f46f0de",
  "syncUrl": "",
  "mapImage": "assets/map-v1.png",
- "students": [
-  {
-   "id": "stu-a",
-   "name": "學生 A",
-   "codeHash": "014c3b53fabf26c08fb5f1e558aae15f65a470d1a788eff648f1808f4fdefdcf"
-  },
-  {
-   "id": "stu-b",
-   "name": "學生 B",
-   "codeHash": "99d7ac49a9f272f7536ed4e222c81594eea8b6eaa283038ebc8f9890a73490a4"
-  }
- ],
+ "students": [],
  "locations": [
   {
    "id": "loc1",

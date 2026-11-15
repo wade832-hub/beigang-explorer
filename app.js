@@ -68,7 +68,7 @@ function sha256js(m) {
   }
   return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
 }
-const codeHash = (act, code) => sha256(act.salt + ':' + String(code).trim().toUpperCase());
+const codeHash = (act, code) => sha256(act.salt + ':' + String(code).replace(/\s+/g, '').toUpperCase());
 
 /* ---------- 二進位工具 ---------- */
 function bufToDataURL(buf, type) { return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = () => rej(fr.error); fr.readAsDataURL(new Blob([buf], { type })); }); }
@@ -96,7 +96,7 @@ async function fetchT(url, opt = {}, ms = 6000) { const c = new AbortController(
 /* ---------- 全域狀態 ---------- */
 const S = { act: null, ident: null, recs: new Map(), pending: new Set(), saveTimer: 0, saveState: null, syncing: false, syncErr: '', lastSync: 0, prep: null };
 const sid = () => S.ident.studentId;
-const stuName = () => (S.act.students.find(s => s.id === sid()) || {}).name || S.ident.name;
+const stuName = () => ((S.act.students || []).find(s => s.id === sid()) || {}).name || S.ident.name;
 const key = (t, l, i) => `${sid()}|${t}|${l}|${i}`;
 function getRec(type, locId, itemId) {
   const id = key(type, locId, itemId);
@@ -150,7 +150,7 @@ async function syncNow(manual) {
   try {
     for (const r of list) {
       const ver = r.updatedAt;
-      const body = JSON.stringify({ action: 'put', activityId: S.act.id, activityTitle: S.act.title, student: { id: sid(), name: stuName() }, record: await serializeRec(r) });
+      const body = JSON.stringify({ action: 'put', activityId: S.act.id, activityTitle: S.act.title, student: { id: sid(), name: stuName(), code: S.ident.code || "" }, record: await serializeRec(r) });
       const res = await fetchT(S.act.syncUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body }, 45000);
       const j = await res.json();
       if (!j.ok) throw new Error(j.error || '伺服器拒絕');
@@ -202,7 +202,7 @@ async function boot() {
   }
   try { S.act = await loadActivity(); } catch (e) { app().innerHTML = `<div class="card"><h2>無法開啟本機資料庫</h2><p>${esc(e.message)}</p><p>若使用無痕模式，請改用一般模式。</p></div>`; return; }
   S.ident = await kvGet('ident');
-  if (S.ident && S.act && (S.ident.activityId !== S.act.id || !S.act.students.some(s => s.id === S.ident.studentId))) S.ident = null;
+  if (S.ident && S.act && (S.ident.activityId !== S.act.id || !(S.ident.studentId.startsWith('c-') || (S.act.students || []).some(s => s.id === S.ident.studentId)))) S.ident = null;
   S.prep = await kvGet('prep');
   if (S.ident) await loadRecs();
   addEventListener('hashchange', route);
@@ -250,23 +250,41 @@ function renderLogin() {
    <ol><li>點 Safari 上方的「分享」按鈕 <b>⎙</b></li><li>選「加入主畫面」→「加入」</li><li>關掉 Safari，從主畫面的「文化探索」圖示開啟，再登入</li></ol>
    <p class="muted small">（教師測試可直接在下方登入）</p></div>` : ''}
   <div class="card"><h2>學生登入</h2>
-   <label class="field" for="code">請輸入老師給你的登入碼</label>
-   <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 BG-0000" style="font-size:22px;letter-spacing:.1em">
+   <div id="recent"></div>
+   <label class="field" for="code">我的代碼 <span class="muted small">（老師給的或自己取的，3–20 個英文字母或數字）</span></label>
+   <input id="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="例如 BG01" style="font-size:22px;letter-spacing:.1em">
+   <label class="field" for="lname">我的名字 <span class="muted small">（第一次使用才需要填，會印在手冊上）</span></label>
+   <input id="lname" type="text" autocomplete="off" maxlength="20" placeholder="例如 王小明">
    <p id="lerr" class="hint" style="color:var(--err)"></p>
    <button class="btn primary block" id="lbtn">進入我的探索</button></div>
-  <p class="muted small" style="text-align:center">登入後這台平板會記住你的身分，離線也能使用。<br><a href="#teacher">教師入口</a></p>`;
+  <p class="muted small" style="text-align:center">資料跟著代碼存：下次輸入同一個代碼，就會回到你的紀錄。<br>請記住自己的代碼，不要告訴別人。<br><a href="#teacher">教師入口</a></p>`;
+  kvGet('profiles').then(P => {
+    const list = Object.values(P || {}).filter(p => p.activityId === S.act.id).sort((a, b) => b.at - a.at);
+    if (!list.length) return;
+    $('#recent').innerHTML = `<p class="muted small" style="margin:0 0 6px">這台平板用過的代碼：</p><div class="row" style="flex-wrap:wrap;margin-bottom:8px">${list.map(p => `<button class="btn sm" data-code="${esc(p.code)}">${esc(p.name)}（${esc(p.code)}）</button>`).join('')}</div>`;
+    $$('[data-code]', $('#recent')).forEach(b => b.onclick = () => { $('#code').value = b.dataset.code; doLogin(); });
+  }).catch(() => { });
   const doLogin = async () => {
-    const code = $('#code').value; if (!code.trim()) return;
+    const code = normCode($('#code').value); if (!code) return;
+    if (!/^[A-Z0-9_-]{3,20}$/.test(code)) { $('#lerr').textContent = '代碼格式不正確：請用 3–20 個英文字母、數字或「-」。'; return; }
     const h = await codeHash(S.act, code);
-    const st = S.act.students.find(s => s.codeHash === h);
-    if (!st) { $('#lerr').textContent = '登入碼不正確，請再確認一次（大小寫不影響）。'; return; }
-    S.ident = { activityId: S.act.id, studentId: st.id, name: st.name, at: Date.now() };
-    try { await kvSet('ident', S.ident); } catch (e) { $('#lerr').textContent = '無法寫入本機儲存：' + e.message; S.ident = null; return; }
+    const st = (S.act.students || []).find(s => s.codeHash === h);
+    const id = st ? st.id : 'c-' + h.slice(0, 16);
+    const P = (await kvGet('profiles')) || {};
+    let name = st ? st.name : (P[id] && P[id].name);
+    if (!name) {
+      const n = $('#lname').value.trim();
+      if (!n) { $('#lerr').textContent = `「${code}」是新的代碼。請在「我的名字」填上名字，再按一次。（如果你用過別的代碼，請確認沒有打錯）`; $('#lname').focus(); return; }
+      name = n;
+    }
+    S.ident = { activityId: S.act.id, studentId: id, name, code, at: Date.now() };
+    try { P[id] = { activityId: S.act.id, code, name, at: Date.now() }; await kvSet('profiles', P); await kvSet('ident', S.ident); } catch (e) { $('#lerr').textContent = '無法寫入本機儲存：' + e.message; S.ident = null; return; }
     await loadRecs();
     go(S.prep && S.prep.ok && S.prep.v === S.act.version ? '' : 'prep'); route();
   };
-  $('#lbtn').onclick = doLogin; $('#code').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
+  $('#lbtn').onclick = doLogin; $('#code').onkeydown = $('#lname').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
 }
+const normCode = s => String(s || '').replace(/\s+/g, '').toUpperCase();
 
 /* ---------- 離線準備檢查 ---------- */
 async function runPrepChecks() {
@@ -633,7 +651,7 @@ async function renderBackup() {
   const sb = $('#syncbtn'); if (sb) sb.onclick = async () => { sb.disabled = true; sb.textContent = '同步中…'; await flush(); await syncNow(true); renderBackup(); };
   $('#expbtn').onclick = async () => {
     await flush(); $('#expmsg').textContent = '打包中…';
-    try { const pkg = await buildPackage(S.act, { id: sid(), name: stuName() }, [...S.recs.values()]);
+    try { const pkg = await buildPackage(S.act, { id: sid(), name: stuName(), code: S.ident.code || "" }, [...S.recs.values()]);
       const blob = new Blob([JSON.stringify(pkg)], { type: 'application/json' });
       await saveFile(blob, `北港探索資料包_${stuName()}_${stamp()}.json`, 'application/json');
       await kvSet('lastExport', Date.now()); $('#expmsg').textContent = `✓ 已產生資料包（${(blob.size / 1048576).toFixed(1)} MB，${pkg.records.length} 筆）`;
@@ -687,12 +705,14 @@ async function mergePkg(pkg) {
 function pkgRecOf(pkg) { const m = new Map(pkg.records.map(r => [r.id, r])); return (t, l, i) => m.get(`${pkg.student.id}|${t}|${l}|${i}`) || { data: {} }; }
 async function renderTResults(nav) {
   const P = await tPkgs();
-  const rows = S.act.students.map(st => { const p = P[st.id];
+  const pre = (S.act.students || []).map(s => ({ id: s.id, name: s.name }));
+  const all = [...pre, ...Object.values(P).map(p => p.student).filter(s => s && !pre.some(x => x.id === s.id))];
+  const rows = !all.length ? '<tr><td colspan="3" class="muted">還沒有收到任何學生的資料。學生用自己的代碼登入，資料匯入或同步後會出現在這裡。</td></tr>' : all.map(st => { const p = P[st.id];
     if (!p) return `<tr><td><b>${esc(st.name)}</b></td><td colspan="3" class="muted">尚未收到資料</td></tr>`;
     const rof = pkgRecOf(p); const act = S.act;
     const loc = act.locations.map(l => { const f = l.clues.filter(c => rof('clue', l.id, c.id).data.photo).length; return `${esc(l.name)}：${f}/${l.clues.length}`; }).join('<br>');
     const last = Math.max(0, ...p.records.map(r => r.updatedAt || 0));
-    return `<tr><td><b>${esc(st.name)}</b><div class="muted small">${p.records.length} 筆・最後更新 ${last ? new Date(last).toLocaleString('zh-TW') : '—'}</div></td><td class="small">${loc}</td><td><button class="btn sm teal" onclick="go('teacher/view/${st.id}')">檢視 / 手冊</button></td></tr>`; }).join('');
+    return `<tr><td><b>${esc(st.name)}</b>${(p.student && p.student.code) ? `<span class="muted small">（${esc(p.student.code)}）</span>` : ""}<div class="muted small">${p.records.length} 筆・最後更新 ${last ? new Date(last).toLocaleString('zh-TW') : '—'}</div></td><td class="small">${loc}</td><td><button class="btn sm teal" onclick="go('teacher/view/${st.id}')">檢視 / 手冊</button></td></tr>`; }).join('');
   app().innerHTML = nav + `<div class="card"><h2>學生成果</h2><table class="t"><tr><th>學生</th><th>尋寶照片</th><th></th></tr>${rows}</table></div>
    <div class="card"><h2>取得學生資料</h2>
     <p><b>方式一：匯入資料包</b>（學生在「備份與同步」匯出的 .json 檔，可一次選多個，重複匯入不會重複）</p>
@@ -743,7 +763,7 @@ function renderTEdit(nav) {
     <label class="field">雲端同步網址（Google Apps Script 部署網址，可留空）</label><input type="url" id="e-sync" value="${esc(d.syncUrl || '')}" placeholder="https://script.google.com/macros/s/…/exec">
     <label class="field">新的教師 PIN（留空＝不變）</label><input type="text" id="e-pin">
     <label class="field">地圖圖片（選填，會取代示意圖）</label><div class="row"><label class="btn sm">上傳地圖<input type="file" accept="image/*" id="e-map"></label>${d.mapImage ? '<button class="btn sm ghost" id="e-mapdel">移除地圖</button><span class="pill ok">已設定</span>' : '<span class="muted small">目前使用示意圖</span>'}</div></div>
-   <div class="card"><h2>學生</h2><p class="muted small">登入碼只以雜湊值儲存，畫面不會再顯示。請自行記下發給學生的登入碼。</p>${Sx}<button class="btn sm" data-act="addstu">＋ 新增學生</button></div>
+   <div class="card"><h2>預先設定的學生 <span class="muted small">（選填）</span></h2><p class="muted small">不設定也可以：學生直接輸入自己的代碼與名字就能使用，資料跟著代碼存。這裡只在想「固定代碼對應固定姓名」時才需要設定；登入碼只以雜湊值儲存。</p>${Sx}<button class="btn sm" data-act="addstu">＋ 新增學生</button></div>
    <div class="card"><h2>地點與任務</h2>${L}<button class="btn" data-act="addloc">＋ 新增地點</button></div>
    <div class="card hl"><h2>儲存</h2><p class="muted small">「下載 activity.json」後，用它取代網站上的同名檔案，學生下次連網開啟就會更新。「只套用到這台裝置」適合先預覽。</p>
     <div class="row"><button class="btn primary grow" id="e-dl">下載 activity.json</button><button class="btn grow" id="e-apply">只套用到這台裝置</button></div>
