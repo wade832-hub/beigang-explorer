@@ -1,5 +1,5 @@
 /* 離線快取：更新程式時請把 CACHE 版本號 +1 */
-const CACHE = 'bgx-v16';
+const CACHE = 'bgx-v17';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './activity.json',
   './manifest.webmanifest', './icon-192.png', './icon-512.png',
   './vendor/html2canvas.min.js', './vendor/jspdf.umd.min.js', './assets/map-v1.png', './assets/ctg-plan-v3.png'];

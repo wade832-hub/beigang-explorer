@@ -2,7 +2,7 @@
  * 資料全部存在本機 IndexedDB；Service Worker 負責離線開啟；有網路且設定 syncUrl 時自動同步到 Google Apps Script。 */
 'use strict';
 /* 版本號：每次更新請把 APP_VER 和 sw.js 的 CACHE（bgx-v數字）一起 +1，並改 APP_DATE */
-const APP_VER = '16';
+const APP_VER = '17';
 const APP_DATE = '2026-11-16';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './activity.json', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './vendor/html2canvas.min.js', './vendor/jspdf.umd.min.js', './assets/map-v1.png', './assets/ctg-plan-v3.png'];
@@ -720,10 +720,9 @@ function bookHTML(act, name, recOf, listOf, hideEmpty = true) {
     H3(`三、創意構想${hasText(s.element) ? '：' + esc(s.element) : ''}`, hideEmpty && !hasText(s.idea) ? '' : A(s.idea)) +
     H3('學習反思', hideEmpty && !hasText(s.reflection) ? '' : A(s.reflection));
   if (syn) pages.push(`<h2>統整與創造</h2>${syn}`);
-  const foot = '<div class="foot">本手冊內容皆為探索者本人原始紀錄，未經改寫。</div>';
   return `<div class="book"><section class="page cover"><div class="t2">文 化 走 讀 探 索 手 冊</div><div class="t1">${esc(act.title)}</div><div class="compass">✦</div>
     <div class="who">探索者　${esc(name)}</div><div class="date">走讀日期　${esc(act.date)}</div></section>` +
-    pages.map((p, k) => `<section class="page">${p}${k === pages.length - 1 ? foot : ''}</section>`).join('') + '</div>';
+    pages.map(p => `<section class="page">${p}</section>`).join('') + '</div>';
 }
 /* 手冊畫面上的「只放有寫的內容」勾選框 */
 function bookToggle(id, render) {
