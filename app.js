@@ -2,7 +2,7 @@
  * 資料全部存在本機 IndexedDB；Service Worker 負責離線開啟；有網路且設定 syncUrl 時自動同步到 Google Apps Script。 */
 'use strict';
 /* 版本號：每次更新請把 APP_VER 和 sw.js 的 CACHE（bgx-v數字）一起 +1，並改 APP_DATE */
-const APP_VER = '14';
+const APP_VER = '15';
 const APP_DATE = '2026-11-16';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './activity.json', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './vendor/html2canvas.min.js', './vendor/jspdf.umd.min.js', './assets/map-v1.png', './assets/ctg-plan-v3.png'];
@@ -655,7 +655,10 @@ function synthDef() {
 function renderSynth() {
   setTop('統整任務', '');
   const rec = getRec('synth', 'all', 'main'), D = synthDef(), L = S.act.locations;
-  const opts = sel => `<option value="">— 選擇地點 —</option>` + L.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('');
+  // 規劃外的地點也能拿來比較／推薦（值存 xloc 的 itemId，開頭是 x，不會跟 loc1… 撞）
+  const XL = listRecs('xloc', 'x');
+  const opts = sel => `<option value="">— 選擇地點 —</option><optgroup label="必訪地點">` + L.map(l => `<option value="${l.id}">${esc(l.name)}</option>`).join('') + `</optgroup>` +
+    (XL.length ? `<optgroup label="規劃外的地點">${XL.map(r => `<option value="${esc(r.itemId)}">${hasText(r.data.name) ? esc(r.data.name) : '（還沒取名字的地點）'}</option>`).join('')}</optgroup>` : '');
   app().innerHTML = `<p class="muted">可以先回去看看自己在各地點的照片和筆記，再回答。所有文字都是你自己的想法，會自動保存。</p>
   <div class="card"><h2>一、分析　<span class="muted small">比較</span></h2><p>${esc(D.analysis)}</p>
    <div class="row"><select data-f="locA" class="grow">${opts()}</select><b>和</b><select data-f="locB" class="grow">${opts()}</select></div>
@@ -678,7 +681,12 @@ function renderSynth() {
 function bookHTML(act, name, recOf, listOf) {
   const NOTES = (t, lid) => { const L = (listOf ? listOf(t, lid) : []).filter(liveNote); return L.length ? `<div class="q">一筆一筆的紀錄（${L.length}）</div>${L.map((r, n) => `<div class="noteblk"><div class="muted small">第 ${n + 1} 筆・${hhmm(r.data.at)}</div>${r.data.photo ? `<img src="${photoURL(r.data.photo)}" alt="">` : ''}${hasText(r.data.text) ? `<div class="a">${esc(r.data.text)}</div>` : ''}</div>`).join('')}` : ''; };
   const A = (v) => hasText(v) ? `<div class="a">${esc(v)}</div>` : `<div class="a empty">（未填寫）</div>`;
-  const locName = id => (act.locations.find(l => l.id === id) || {}).name || '（未選擇）';
+  const locName = id => {
+    if (!id) return '（未選擇）';
+    const l = act.locations.find(l => l.id === id); if (l) return l.name;
+    const x = (listOf ? listOf('xloc', 'x') : []).find(r => r.itemId === id);
+    return x ? (hasText(x.data.name) ? x.data.name : '未命名的地點') : '（已刪除的地點）';
+  };
   let h = `<div class="book"><section class="page cover"><div class="t2">文 化 走 讀 探 索 手 冊</div><div class="t1">${esc(act.title)}</div><div class="compass">✦</div>
     <div class="who">探索者　${esc(name)}</div><div class="date">走讀日期　${esc(act.date)}</div></section>`;
   if (act.mission && (act.mission.prompts || []).length) {
