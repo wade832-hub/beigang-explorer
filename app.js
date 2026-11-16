@@ -93,6 +93,57 @@ function photoURL(ph) { if (!ph) return ''; if (ph.dataUrl) return ph.dataUrl; c
 function freeURLs() { urlPool.forEach(u => URL.revokeObjectURL(u)); urlPool = []; }
 async function fetchT(url, opt = {}, ms = 6000) { const c = new AbortController(); const t = setTimeout(() => c.abort(), ms); try { return await fetch(url, { ...opt, signal: c.signal }); } finally { clearTimeout(t); } }
 
+/* ---------- App 內相機（Chromebook）----------
+ * ChromeOS 不支援 <input capture>，按「拍照」會跳出檔案視窗（下載資料夾）。
+ * 在 Chromebook 上改用 getUserMedia 開 App 內相機，拍好後把照片塞回原本的 <input>，
+ * 觸發同一個 onchange，後續存檔流程完全不變。 */
+const isCrOS = /\bCrOS\b/.test(navigator.userAgent);
+let camBypass = false;
+document.addEventListener('click', e => {
+  const inp = e.target && e.target.closest && e.target.closest('input[type=file][capture]');
+  if (!inp || !isCrOS || camBypass || !(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return;
+  e.preventDefault(); openCamera(inp);
+}, true);
+async function openCamera(inp) {
+  const ov = document.createElement('div'); ov.className = 'cam';
+  ov.innerHTML = `<video playsinline autoplay muted></video><p class="cammsg">開啟相機中…</p>
+   <div class="camrow"><button class="btn" data-c="cancel">✕ 取消</button><button class="btn primary camshot" data-c="shot" disabled>📷 拍照</button><button class="btn" data-c="flip" hidden>🔄 換鏡頭</button></div>`;
+  document.body.appendChild(ov);
+  const video = $('video', ov), msg = $('.cammsg', ov), shot = $('[data-c=shot]', ov), flip = $('[data-c=flip]', ov);
+  let stream = null, facing = 'environment';
+  const stop = () => { if (stream) stream.getTracks().forEach(t => t.stop()); stream = null; };
+  const close = () => { stop(); ov.remove(); };
+  const start = async () => {
+    stop(); shot.disabled = true; msg.textContent = '開啟相機中…'; msg.hidden = false;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+      video.srcObject = stream; await video.play().catch(() => { });
+      msg.hidden = true; shot.disabled = false;
+      const cams = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+      flip.hidden = cams.length < 2;
+    } catch (err) {
+      const denied = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      msg.innerHTML = (denied ? '相機權限被拒絕。請按網址列（或 App 視窗上方）的相機／鎖頭圖示，把相機改成「允許」後再試一次。' : '無法開啟相機：' + esc(err && err.message || err)) +
+        '<br><button class="btn sm" data-c="file" style="margin-top:10px">改從檔案選照片</button>';
+      $('[data-c=file]', ov).onclick = () => { close(); camBypass = true; inp.removeAttribute('capture'); inp.click(); inp.setAttribute('capture', 'environment'); camBypass = false; };
+    }
+  };
+  $('[data-c=cancel]', ov).onclick = close;
+  flip.onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; start(); };
+  shot.onclick = async () => {
+    if (!video.videoWidth) return;
+    shot.disabled = true;
+    const cv = document.createElement('canvas'); cv.width = video.videoWidth; cv.height = video.videoHeight;
+    cv.getContext('2d').drawImage(video, 0, 0);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92)); cv.width = cv.height = 1;
+    close();
+    if (!blob) return;
+    const dt = new DataTransfer(); dt.items.add(new File([blob], `photo-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+    inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  start();
+}
+
 /* ---------- 全域狀態 ---------- */
 const S = { act: null, ident: null, recs: new Map(), pending: new Set(), saveTimer: 0, saveState: null, syncing: false, syncErr: '', lastSync: 0, prep: null };
 const sid = () => S.ident.studentId;
