@@ -234,6 +234,7 @@ async function route() {
   if (h === 'prep') return renderPrep();
   if (h === 'mission' || h.startsWith('mission/')) return renderMission(h.split('/')[1]);
   if (h.startsWith('loc/')) { const [, id, tab] = h.split('/'); return renderLoc(id, tab || 'hunt'); }
+  if (h.startsWith('xloc/')) return renderXLoc(h.split('/')[1]);
   if (h === 'synth') return renderSynth();
   if (h === 'book') return renderBookView();
   if (h === 'backup') return renderBackup();
@@ -384,6 +385,11 @@ function renderHome() {
   <div class="locs">${S.act.locations.map((l, i) => { const s = locStatus(l); return `<button class="loc" onclick="go('loc/${l.id}')"><h3><span class="num" style="${s.state === 'done' ? 'background:var(--ok)' : s.state === 'part' ? 'background:var(--gold)' : ''}">${s.state === 'done' ? '✓' : i + 1}</span>${esc(l.name)}</h3>
     ${l.subtitle ? `<div class="muted small">${esc(l.subtitle)}</div>` : ''}
     <div class="chips"><span class="chip ${s.found === s.nClues && s.nClues ? 'ok' : ''}">🔍 尋寶 ${s.found}/${s.nClues}</span><span class="chip ${s.guide ? 'ok' : ''}">🎧 導覽紀錄 ${s.guide ? '✓' : '—'}</span><span class="chip ${s.disc ? 'ok' : ''}">💡 我的發現 ${s.disc ? '✓' : '—'}</span></div></button>`; }).join('')}</div>
+  <h2 style="margin-top:22px">規劃外的地點 <span class="muted small">（路上發現有趣的地方，也可以記下來）</span></h2>
+  ${listRecs('xloc', 'x').length ? `<div class="locs">${listRecs('xloc', 'x').map((r, i) => { const n = listRecs('xnote', r.itemId).filter(liveNote).length, txt = anyText(r.data, XKEYS); return `<button class="loc" onclick="go('xloc/${r.itemId}')"><h3><span class="num" style="background:${n || txt ? 'var(--teal)' : ''}">＋</span>${hasText(r.data.name) ? esc(r.data.name) : '<span class="muted">（還沒取名字）</span>'}</h3>
+    ${hasText(r.data.where) ? `<div class="muted small">📍 ${esc(r.data.where)}</div>` : ''}
+    <div class="chips"><span class="chip ${n ? 'ok' : ''}">📷 紀錄 ${n} 筆</span><span class="chip ${txt ? 'ok' : ''}">💡 我的發現 ${txt ? '✓' : '—'}</span></div></button>`; }).join('')}</div>` : ''}
+  <button class="btn block" style="margin-top:8px" onclick="addXLoc()">➕ 新增一個規劃外的地點</button>
   <h2 style="margin-top:22px">走讀之後</h2>
   <div class="bigrow"><button class="btn teal" onclick="go('synth')">🧠 統整任務</button><button class="btn primary" onclick="go('book')">📖 我的探索手冊</button><button class="btn" onclick="go('backup')">💾 備份與同步</button></div>
   <p class="muted small" style="text-align:center;margin-top:24px">v${APP_VER}・<a href="#prep">離線檢查</a></p>`;
@@ -517,6 +523,32 @@ function renderDisc(loc, pane) {
   renderNotes(loc, $('#notes', pane), 'dnote', '💡 我的發現（一筆一筆）', '我發現了什麼？拍下來，寫一句說明');
 }
 
+/* ---------- 規劃外的地點（學生自己新增；地點本身是一筆 xloc 紀錄，照片筆記是 xnote） ---------- */
+const XKEYS = ['observe', 'curious', 'question', 'guess'];
+async function addXLoc() {
+  const r = getRec('xloc', 'x', 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+  r.data.at = Date.now(); r.data.name = ''; await saveNow(r); go('xloc/' + r.itemId);
+}
+window.addXLoc = addXLoc;
+function renderXLoc(id) {
+  const rec = S.recs.get(key('xloc', 'x', id)); if (!rec || rec.data.deleted) return go('');
+  setTop('規劃外的地點', '');
+  app().innerHTML = `<div class="card" id="xcard"><p class="muted">📍 路上看到計畫外、但讓你好奇的地方？在這裡記下來，會放進你的探索手冊。</p>
+   <label class="field">這是什麼地方？</label><input type="text" data-f="name" placeholder="例如：老餅店、路邊的小廟、特別的老房子">
+   <label class="field">在哪裡？<span class="muted small">（選填）</span></label><input type="text" data-f="where" placeholder="例如：中山路上、朝天宮旁邊的巷子">
+   ${DISC.map(([k, q, ph]) => `<label class="field">${q}</label><textarea data-f="${k}" rows="2" placeholder="${esc(ph)}"></textarea>`).join('')}</div>
+   <div id="notes"></div>
+   <div class="row" style="margin-top:10px"><button class="btn ghost sm" id="xdel">🗑 刪除這個地點</button><span class="grow"></span><button class="btn primary" onclick="go('')">完成，回首頁</button></div>`;
+  bindText($('#xcard'), rec);
+  renderNotes({ id }, $('#notes'), 'xnote', '📷 這裡的紀錄（一筆一筆）', '拍下來，寫一句說明');
+  $('#xdel').onclick = async () => {
+    if (!confirm('確定刪除這個地點和它的所有紀錄？')) return;
+    await flush();
+    for (const r of listRecs('xnote', id)) { r.data.deleted = true; r.data.photo = null; r.data.text = ''; await saveNow(r); }
+    rec.data.deleted = true; await saveNow(rec); go('');
+  };
+}
+
 /* ---------- 一筆一筆的紀錄（文字＋照片，每筆一個紀錄，各自存檔與同步） ---------- */
 const liveNote = r => r && !r.data.deleted && (hasText(r.data.text) || r.data.photo);
 function listRecs(type, locId) {
@@ -606,6 +638,12 @@ function bookHTML(act, name, recOf, listOf) {
       h += `<div class="clueblk"><div class="cluetxt"><b>線索 ${j + 1}：</b>${esc(c.text)}</div>${r.photo ? `<img src="${photoURL(r.photo)}" alt="">` : `<div class="noimg">${r.skipped ? '這條線索暫時跳過' : '尚未拍照'}</div>`}${hasText(r.reason) ? `<div class="q">我的判斷理由</div>${A(r.reason)}` : ''}</div>`; });
     h += `<h3>🎧 導覽紀錄</h3>${(l.guide || []).map((q, k) => `<div class="q">${esc(q)}</div>${A(g['q' + k])}`).join('')}<div class="q">自由筆記</div>${A(g.notes)}${NOTES('gnote', l.id)}
       <h3>💡 我的發現與疑問</h3>${DISC.map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}${NOTES('dnote', l.id)}</section>`;
+  });
+  const XL = (listOf ? listOf('xloc', 'x') : []).filter(r => hasText(r.data.name) || anyText(r.data, XKEYS) || listOf('xnote', r.itemId).some(liveNote));
+  XL.forEach((r, i) => {
+    const d = r.data;
+    h += `<section class="page"><h2>規劃外的地點 ${i + 1}｜${hasText(d.name) ? esc(d.name) : '（未命名）'}</h2>${hasText(d.where) ? `<div class="q">在哪裡</div>${A(d.where)}` : ''}
+      ${DISC.filter(([k]) => hasText(d[k])).map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}${NOTES('xnote', r.itemId)}</section>`;
   });
   const s = recOf('synth', 'all', 'main').data, D = synthDef.call(null);
   h += `<section class="page"><h2>統整與創造</h2>
@@ -756,7 +794,7 @@ async function renderTResults(nav) {
   const rows = !all.length ? '<tr><td colspan="3" class="muted">還沒有收到任何學生的資料。學生用自己的代碼登入，資料匯入或同步後會出現在這裡。</td></tr>' : all.map(st => { const p = P[st.id];
     if (!p) return `<tr><td><b>${esc(st.name)}</b></td><td colspan="3" class="muted">尚未收到資料</td></tr>`;
     const rof = pkgRecOf(p); const act = S.act;
-    const loc = act.locations.map(l => { const f = l.clues.filter(c => rof('clue', l.id, c.id).data.photo).length; return `${esc(l.name)}：${f}/${l.clues.length}`; }).join('<br>');
+    const loc = act.locations.map(l => { const f = l.clues.filter(c => rof('clue', l.id, c.id).data.photo).length; return `${esc(l.name)}：${f}/${l.clues.length}`; }).join('<br>') + (() => { const n = pkgListOf(p)('xloc', 'x').length; return n ? `<br>規劃外地點：${n} 個` : ''; })();
     const last = Math.max(0, ...p.records.map(r => r.updatedAt || 0));
     return `<tr><td><b>${esc(st.name)}</b>${(p.student && p.student.code) ? `<span class="muted small">（${esc(p.student.code)}）</span>` : ""}<div class="muted small">${p.records.length} 筆・最後更新 ${last ? new Date(last).toLocaleString('zh-TW') : '—'}</div></td><td class="small">${loc}</td><td><button class="btn sm teal" onclick="go('teacher/view/${st.id}')">檢視 / 手冊</button></td></tr>`; }).join('');
   app().innerHTML = nav + `<div class="card"><h2>學生成果</h2><table class="t"><tr><th>學生</th><th>尋寶照片</th><th></th></tr>${rows}</table></div>
