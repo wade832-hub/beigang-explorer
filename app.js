@@ -2,7 +2,7 @@
  * 資料全部存在本機 IndexedDB；Service Worker 負責離線開啟；有網路且設定 syncUrl 時自動同步到 Google Apps Script。 */
 'use strict';
 /* 版本號：每次更新請把 APP_VER 和 sw.js 的 CACHE（bgx-v數字）一起 +1，並改 APP_DATE */
-const APP_VER = '15';
+const APP_VER = '16';
 const APP_DATE = '2026-11-16';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './activity.json', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './vendor/html2canvas.min.js', './vendor/jspdf.umd.min.js', './assets/map-v1.png', './assets/ctg-plan-v3.png'];
@@ -678,50 +678,66 @@ function renderSynth() {
 }
 
 /* ---------- 探索手冊（學生與教師共用） ---------- */
-function bookHTML(act, name, recOf, listOf) {
+function bookHTML(act, name, recOf, listOf, hideEmpty = true) {
+  // hideEmpty：沒去、沒寫的地點與題目不放進手冊（預設開啟；可在手冊畫面取消勾選，看到完整版含空白）
   const NOTES = (t, lid) => { const L = (listOf ? listOf(t, lid) : []).filter(liveNote); return L.length ? `<div class="q">一筆一筆的紀錄（${L.length}）</div>${L.map((r, n) => `<div class="noteblk"><div class="muted small">第 ${n + 1} 筆・${hhmm(r.data.at)}</div>${r.data.photo ? `<img src="${photoURL(r.data.photo)}" alt="">` : ''}${hasText(r.data.text) ? `<div class="a">${esc(r.data.text)}</div>` : ''}</div>`).join('')}` : ''; };
   const A = (v) => hasText(v) ? `<div class="a">${esc(v)}</div>` : `<div class="a empty">（未填寫）</div>`;
+  const QA = (q, v) => hideEmpty && !hasText(v) ? '' : `<div class="q">${q}</div>${A(v)}`;
+  const H3 = (t, body) => hideEmpty && !body.trim() ? '' : `<h3>${t}</h3>${body}`;
   const locName = id => {
     if (!id) return '（未選擇）';
     const l = act.locations.find(l => l.id === id); if (l) return l.name;
     const x = (listOf ? listOf('xloc', 'x') : []).find(r => r.itemId === id);
     return x ? (hasText(x.data.name) ? x.data.name : '未命名的地點') : '（已刪除的地點）';
   };
-  let h = `<div class="book"><section class="page cover"><div class="t2">文 化 走 讀 探 索 手 冊</div><div class="t1">${esc(act.title)}</div><div class="compass">✦</div>
-    <div class="who">探索者　${esc(name)}</div><div class="date">走讀日期　${esc(act.date)}</div></section>`;
+  const pages = [];
   if (act.mission && (act.mission.prompts || []).length) {
     const md = recOf('mission', 'all', 'main').data;
-    h += `<section class="page"><h2>出發前的想法</h2>${act.mission.prompts.map(([k, q]) => `<div class="q">${esc(q)}</div>${A(md[k])}`).join('')}</section>`;
+    const body = act.mission.prompts.map(([k, q]) => QA(esc(q), md[k])).join('');
+    if (body) pages.push(`<h2>出發前的想法</h2>${body}`);
   }
+  let n = 0;
   act.locations.forEach((l, i) => {
     const g = recOf('guide', l.id, 'main').data, d = recOf('disc', l.id, 'main').data;
-    h += `<section class="page"><h2>地點 ${i + 1}｜${esc(l.name)}</h2><h3>🔍 尋寶紀錄</h3>`;
-    l.clues.forEach((c, j) => { const r = recOf('clue', l.id, c.id).data;
-      h += `<div class="clueblk"><div class="cluetxt"><b>線索 ${j + 1}：</b>${esc(c.text)}</div>${r.photo ? `<img src="${photoURL(r.photo)}" alt="">` : `<div class="noimg">${r.skipped ? '這條線索暫時跳過' : '尚未拍照'}</div>`}${hasText(r.reason) ? `<div class="q">我的判斷理由</div>${A(r.reason)}` : ''}</div>`; });
-    h += `<h3>🎧 導覽紀錄</h3>${(l.guide || []).map((q, k) => `<div class="q">${esc(q)}</div>${A(g['q' + k])}`).join('')}<div class="q">自由筆記</div>${A(g.notes)}${NOTES('gnote', l.id)}
-      <h3>💡 我的發現與疑問</h3>${DISC.map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}${NOTES('dnote', l.id)}</section>`;
+    const clues = l.clues.map((c, j) => { const r = recOf('clue', l.id, c.id).data;
+      if (hideEmpty && !r.photo && !hasText(r.reason)) return '';
+      return `<div class="clueblk"><div class="cluetxt"><b>線索 ${j + 1}：</b>${esc(c.text)}</div>${r.photo ? `<img src="${photoURL(r.photo)}" alt="">` : `<div class="noimg">${r.skipped ? '這條線索暫時跳過' : '尚未拍照'}</div>`}${hasText(r.reason) ? `<div class="q">我的判斷理由</div>${A(r.reason)}` : ''}</div>`; }).join('');
+    const guide = (l.guide || []).map((q, k) => QA(esc(q), g['q' + k])).join('') + QA('自由筆記', g.notes) + NOTES('gnote', l.id);
+    const disc = DISC.map(([k, q]) => QA(q, d[k])).join('') + NOTES('dnote', l.id);
+    const body = H3('🔍 尋寶紀錄', clues) + H3('🎧 導覽紀錄', guide) + H3('💡 我的發現與疑問', disc);
+    if (hideEmpty && !body) return;
+    pages.push(`<h2>地點 ${hideEmpty ? ++n : i + 1}｜${esc(l.name)}</h2>${body}`);
   });
   const XL = (listOf ? listOf('xloc', 'x') : []).filter(r => hasText(r.data.name) || anyText(r.data, XKEYS) || listOf('xnote', r.itemId).some(liveNote));
   XL.forEach((r, i) => {
     const d = r.data;
-    h += `<section class="page"><h2>規劃外的地點 ${i + 1}｜${hasText(d.name) ? esc(d.name) : '（未命名）'}</h2>${hasText(d.where) ? `<div class="q">在哪裡</div>${A(d.where)}` : ''}
-      ${DISC.filter(([k]) => hasText(d[k])).map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}${NOTES('xnote', r.itemId)}</section>`;
+    pages.push(`<h2>規劃外的地點 ${i + 1}｜${hasText(d.name) ? esc(d.name) : '（未命名）'}</h2>${hasText(d.where) ? `<div class="q">在哪裡</div>${A(d.where)}` : ''}
+      ${DISC.filter(([k]) => hasText(d[k])).map(([k, q]) => `<div class="q">${q}</div>${A(d[k])}`).join('')}${NOTES('xnote', r.itemId)}`);
   });
-  const s = recOf('synth', 'all', 'main').data, D = synthDef.call(null);
-  h += `<section class="page"><h2>統整與創造</h2>
-    <h3>一、跨地點分析：${esc(locName(s.locA))} × ${esc(locName(s.locB))}</h3><div class="q">共同點</div>${A(s.same)}<div class="q">差異</div>${A(s.diff)}
-    <h3>二、文化特色評鑑：我推薦「${esc(locName(s.choice))}」</h3><div class="q">證據 1</div>${A(s.evidence1)}<div class="q">證據 2</div>${A(s.evidence2)}<div class="q">所以我認為</div>${A(s.why)}
-    <h3>三、創意構想${hasText(s.element) ? '：' + esc(s.element) : ''}</h3>${A(s.idea)}
-    <h3>學習反思</h3>${A(s.reflection)}
-    <div class="foot">本手冊內容皆為探索者本人原始紀錄，未經改寫。</div></section></div>`;
-  return h;
+  const s = recOf('synth', 'all', 'main').data;
+  const syn = H3(`一、跨地點分析：${esc(locName(s.locA))} × ${esc(locName(s.locB))}`, QA('共同點', s.same) + QA('差異', s.diff)) +
+    H3(`二、文化特色評鑑：我推薦「${esc(locName(s.choice))}」`, QA('證據 1', s.evidence1) + QA('證據 2', s.evidence2) + QA('所以我認為', s.why)) +
+    H3(`三、創意構想${hasText(s.element) ? '：' + esc(s.element) : ''}`, hideEmpty && !hasText(s.idea) ? '' : A(s.idea)) +
+    H3('學習反思', hideEmpty && !hasText(s.reflection) ? '' : A(s.reflection));
+  if (syn) pages.push(`<h2>統整與創造</h2>${syn}`);
+  const foot = '<div class="foot">本手冊內容皆為探索者本人原始紀錄，未經改寫。</div>';
+  return `<div class="book"><section class="page cover"><div class="t2">文 化 走 讀 探 索 手 冊</div><div class="t1">${esc(act.title)}</div><div class="compass">✦</div>
+    <div class="who">探索者　${esc(name)}</div><div class="date">走讀日期　${esc(act.date)}</div></section>` +
+    pages.map((p, k) => `<section class="page">${p}${k === pages.length - 1 ? foot : ''}</section>`).join('') + '</div>';
+}
+/* 手冊畫面上的「只放有寫的內容」勾選框 */
+function bookToggle(id, render) {
+  const cb = $('#' + id); if (!cb) return;
+  cb.onchange = () => { freeURLs(); $('#bookwrap').innerHTML = render(cb.checked); };
 }
 function renderBookView() {
   setTop('我的探索手冊', '');
   app().innerHTML = `<div class="card noprint"><p>手冊會用你目前的紀錄自動排版，<b>沒完成的部分也能先匯出</b>。</p>
    <div class="row"><button class="btn primary grow" id="pdfbtn">📄 下載 PDF</button><button class="btn grow" onclick="window.print()">🖨 列印 / 存成 PDF</button></div>
+   <label class="row small" style="margin-top:8px;gap:8px"><input type="checkbox" id="hideblank" checked style="width:22px;height:22px">只放有寫的內容（沒去、沒寫的地點和題目不會出現）</label>
    <p class="hint" id="pdfmsg">PDF 在平板上直接產生，不需要網路。iPad 會出現分享選單，請選「儲存到檔案」。</p></div>
    <div id="bookwrap">${bookHTML(S.act, stuName(), getRec, listRecs)}</div>`;
+  bookToggle('hideblank', hide => bookHTML(S.act, stuName(), getRec, listRecs, hide));
   $('#pdfbtn').onclick = () => makePDF($('#bookwrap'), `${S.act.title}_${stuName()}_探索手冊.pdf`, $('#pdfmsg'), $('#pdfbtn'));
 }
 function loadScript(src) { return new Promise((res, rej) => { if ($(`script[src="${src}"]`)) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('無法載入 ' + src)); document.head.appendChild(s); }); }
@@ -881,7 +897,8 @@ async function renderTView(id) {
   const p = (await tPkgs())[id]; if (!p) return go('teacher/results');
   setTop(p.student.name + ' 的手冊', 'teacher/results');
   app().innerHTML = `<div class="card noprint"><div class="row"><button class="btn primary grow" id="tpdf">📄 下載 PDF</button><button class="btn grow" onclick="window.print()">🖨 列印</button>
-   <button class="btn grow" id="tjson">💾 下載資料包</button></div><p class="hint" id="tmsg"></p></div><div id="bookwrap">${bookHTML(S.act, p.student.name, pkgRecOf(p), pkgListOf(p))}</div>`;
+   <button class="btn grow" id="tjson">💾 下載資料包</button></div><label class="row small" style="margin-top:8px;gap:8px"><input type="checkbox" id="hideblank" checked style="width:22px;height:22px">只放有寫的內容（取消勾選可看到所有空白題目）</label><p class="hint" id="tmsg"></p></div><div id="bookwrap">${bookHTML(S.act, p.student.name, pkgRecOf(p), pkgListOf(p))}</div>`;
+  bookToggle('hideblank', hide => bookHTML(S.act, p.student.name, pkgRecOf(p), pkgListOf(p), hide));
   $('#tpdf').onclick = () => makePDF($('#bookwrap'), `${S.act.title}_${p.student.name}_探索手冊.pdf`, $('#tmsg'), $('#tpdf'));
   $('#tjson').onclick = () => saveFile(new Blob([JSON.stringify({ format: 'beigang-pkg', v: 1, student: p.student, activity: p.activity, records: p.records })], { type: 'application/json' }), `北港探索資料包_${p.student.name}_${stamp()}.json`, 'application/json');
 }
