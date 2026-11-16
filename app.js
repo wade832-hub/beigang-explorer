@@ -1,7 +1,9 @@
 /* 北港文化探索｜離線優先走讀系統  v1.0
  * 資料全部存在本機 IndexedDB；Service Worker 負責離線開啟；有網路且設定 syncUrl 時自動同步到 Google Apps Script。 */
 'use strict';
-const APP_VER = '1.0.0';
+/* 版本號：每次更新請把 APP_VER 和 sw.js 的 CACHE（bgx-v數字）一起 +1，並改 APP_DATE */
+const APP_VER = '14';
+const APP_DATE = '2026-11-16';
 const ASSETS = ['./', './index.html', './app.js', './style.css', './activity.json', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './vendor/html2canvas.min.js', './vendor/jspdf.umd.min.js', './assets/map-v1.png', './assets/ctg-plan-v3.png'];
 
@@ -249,6 +251,7 @@ async function loadActivity() {
   return stored;
 }
 async function boot() {
+  const vf = $('#appver'); if (vf) vf.textContent = `北港文化探索・第 ${APP_VER} 版（${APP_DATE}）`;
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     try { await navigator.serviceWorker.register('sw.js'); } catch (e) { console.warn('SW 註冊失敗', e); }
   }
@@ -443,7 +446,7 @@ function renderHome() {
   <button class="btn block" style="margin-top:8px" onclick="addXLoc()">➕ 新增一個規劃外的地點</button>
   <h2 style="margin-top:22px">走讀之後</h2>
   <div class="bigrow"><button class="btn teal" onclick="go('synth')">🧠 統整任務</button><button class="btn primary" onclick="go('book')">📖 我的探索手冊</button><button class="btn" onclick="go('backup')">💾 備份與同步</button></div>
-  <p class="muted small" style="text-align:center;margin-top:24px">v${APP_VER}・<a href="#prep">離線檢查</a></p>`;
+  <p class="muted small" style="text-align:center;margin-top:24px"><a href="#prep">離線檢查</a></p>`;
 }
 
 /* ---------- 任務說明（出發前約 10 分鐘） ---------- */

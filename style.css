@@ -176,3 +176,7 @@ table.t td,table.t th{border-bottom:1px solid var(--line);padding:6px;text-align
 .cam .camrow{display:flex;gap:12px;justify-content:center;align-items:center;padding:14px 16px calc(14px + env(safe-area-inset-bottom));width:100%;background:rgba(0,0,0,.85)}
 .cam .camshot{min-width:140px;font-size:18px}
 .cam [hidden]{display:none}
+
+/* 版本號（每頁最下方） */
+#appver{text-align:center;color:var(--ink2);font-size:13px;opacity:.75;padding:18px 16px calc(70px + env(safe-area-inset-bottom))}
+@media print{#appver{display:none}}
